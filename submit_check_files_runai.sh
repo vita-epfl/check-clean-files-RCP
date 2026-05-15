@@ -93,18 +93,23 @@ if [ -z "$image" ]; then
     exit 1
 fi
 
-declare -a runai_cmd=(runai)
-if [ -n "$project" ]; then
-    runai_cmd+=(-p "$project")
+if [ -z "$project" ]; then
+    echo "Missing required -p <project> for Run:ai v2 (for example: vita-${USER:-user})" >&2
+    print_usage
+    exit 1
 fi
 
-runai_cmd+=(
+declare -a runai_cmd=(
+    runai
+    training
     submit
-    --name "$job_name"
-    --image "$image"
-    --cpu "$cpu"
-    --memory "$memory"
+    "$job_name"
+    -p "$project"
+    -i "$image"
+    --cpu-core-request "$cpu"
+    --cpu-memory-request "$memory"
     --working-dir "$IMAGE_REPO_ROOT"
+    --restart-policy Never
 )
 
 if [ -n "$run_as_uid" ]; then

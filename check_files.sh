@@ -102,6 +102,18 @@ format_bytes_human() {
     fi
 }
 
+parse_size_bytes() {
+    local size_value="$1"
+    local parsed_size
+    size_value="${size_value%B}"
+    if command -v numfmt >/dev/null 2>&1; then
+        parsed_size=$(numfmt --from=iec "$size_value" 2>/dev/null) || return 1
+        printf '%s\n' "$parsed_size"
+        return 0
+    fi
+    return 1
+}
+
 summary_file_for() {
     local csv_file="$1"
     printf '%s.summary.txt\n' "${csv_file%.*}"
@@ -132,9 +144,11 @@ write_summary() {
     local total_bytes=0
     if command -v numfmt >/dev/null 2>&1; then
         local size_value
+        local parsed_size
         while IFS= read -r size_value; do
             [ -z "$size_value" ] && continue
-            total_bytes=$((total_bytes + $(numfmt --from=iec "$size_value")))
+            parsed_size=$(parse_size_bytes "$size_value") || continue
+            total_bytes=$((total_bytes + parsed_size))
         done < <(awk -F',' 'NR > 1 {gsub(/"/, "", $2); if ($2 != "TOO_LARGE" && $2 != "") print $2}' "$csv_file")
     fi
 
@@ -156,11 +170,8 @@ write_summary() {
         awk -F',' 'NR > 1 {gsub(/"/, "", $1); gsub(/"/, "", $2); if ($2 != "TOO_LARGE" && $2 != "") print $1 "\t" $2}' "$csv_file" \
             | while IFS=$'\t' read -r path size; do
                 [ -z "$path" ] && continue
-                if command -v numfmt >/dev/null 2>&1; then
-                    printf "%s\t%s\n" "$(numfmt --from=iec "$size")" "$path ($size)"
-                else
-                    printf "0\t%s (%s)\n" "$path" "$size"
-                fi
+                parsed_size=$(parse_size_bytes "$size") || parsed_size=0
+                printf "%s\t%s\n" "$parsed_size" "$path ($size)"
             done \
             | sort -nr \
             | head -n "$summary_limit" \
