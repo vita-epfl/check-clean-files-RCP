@@ -395,7 +395,7 @@ else
 fi
 
 if [ -z "$OUTPUT_DIR" ]; then
-    OUTPUT_DIR="${base_dirs[0]%/}/.check-clean-files/output"
+    OUTPUT_DIR="${base_dirs[0]%/}/check-clean-files/output"
 fi
 
 mkdir -p "$OUTPUT_DIR"

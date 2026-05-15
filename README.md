@@ -30,6 +30,8 @@ docker push registry.rcp.epfl.ch/vita/check-clean-files:latest
 
 ## Submit With Run:ai v2
 
+This example scans all of `/mnt/vita/scratch` and stores the output in your user area.
+
 ```powershell
 runai training submit check-files-<your_username> `
   -p vita-<your_username> `
@@ -40,16 +42,16 @@ runai training submit check-files-<your_username> `
   --existing-pvc claimname=vita-scratch,path=/mnt/vita/scratch `
   --restart-policy Never `
   --command -- bash /opt/check-clean-files/check_files.sh `
-    -b /mnt/vita/scratch/vita-staff/users/<your_username> `
-    -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files-output `
-    -m 50 -d 2 -o files_rcp.csv
+    -b /mnt/vita/scratch `
+    -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output `
+    -m 50 -d 5 -t 1800 -o files_rcp.csv
 ```
 
 ## Output
 
 ```text
-/mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files-output/files_rcp.csv
-/mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files-output/files_rcp.summary.txt
+/mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output/files_rcp.csv
+/mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output/files_rcp.summary.txt
 ```
 
 The summary includes the number of matching directories, `TOO_LARGE` entries, total known size, largest entries, and oldest modified entries.
