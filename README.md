@@ -30,7 +30,7 @@ docker push registry.rcp.epfl.ch/vita/check-clean-files:latest
 
 ## Submit With Run:ai v2
 
-This example scans all of `/mnt/vita/scratch` and stores the output in your user area.
+This example scans user scratch folders and measures only one folder inside each user directory, e.g. `/mnt/vita/scratch/vita-staff/users/<person>/<top-folder>`.
 
 ```powershell
 runai training submit check-files-<your_username> `
@@ -42,9 +42,9 @@ runai training submit check-files-<your_username> `
   --existing-pvc claimname=vita-scratch,path=/mnt/vita/scratch `
   --restart-policy Never `
   --command -- bash /opt/check-clean-files/check_files.sh `
-    -b /mnt/vita/scratch `
+    -b /mnt/vita/scratch/vita-staff/users `
     -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output `
-    -m 50 -d 5 -t 1800 -o files_rcp.csv
+    -m 50 -d 2 --measure-mindepth 2 -t 600 -o files_rcp.csv
 ```
 
 ## Output

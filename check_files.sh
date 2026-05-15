@@ -13,6 +13,7 @@ summary_only=false
 summary_limit=10
 expiration_days=365
 max_depth=2
+measure_min_depth=1
 log_basename="expired_files_rcp.csv"
 declare -a base_dirs=()
 declare -a user_base_dirs=()
@@ -23,13 +24,14 @@ print_usage() {
 Usage: check_files.sh [--resume] [--summary-only] [-e] [-m min_size_gb] [-t timeout_seconds]
                       [-d max_depth] [-a expiration_days] [-b base_dir[,base_dir...]]
                       [-x exclude_dir[,exclude_dir...]] [-o output_csv_basename]
-                      [-O output_directory]
+                      [-O output_directory] [--measure-mindepth depth]
 
 Options:
   -e                         Only consider directories older than expiration_days.
   -m <min_size_gb>           Minimum directory size in GB to record. Default: 50.
   -t <timeout_seconds>       Timeout for each du call. Default: 1200.
   -d <max_depth>             Maximum directory depth to scan from each base dir. Default: 2.
+  --measure-mindepth <depth> Only measure directories at least this deep from each base dir. Default: 1.
   -a <expiration_days>       Age threshold for -e. Default: 365.
   -b <dir[,dir,...]>         Base directories to scan.
   -x <dir[,dir,...]>         Exact directories to skip measuring.
@@ -86,6 +88,20 @@ is_excluded_dir() {
         fi
     done
     return 1
+}
+
+relative_depth() {
+    local base_dir="${1%/}"
+    local dir="${2%/}"
+    local relative_path
+
+    if [[ "$dir" == "$base_dir" ]]; then
+        echo 0
+        return
+    fi
+
+    relative_path="${dir#"$base_dir"/}"
+    awk -F'/' '{print NF}' <<< "$relative_path"
 }
 
 csv_last_directory() {
@@ -205,7 +221,7 @@ log_expired_dirs_with_size() {
     fi
 
     echo "Scanning $base_dir" >&2
-    echo "  expired_only=$expired_only min_size_gb=$min_size_gb timeout_seconds=$timeout_seconds max_depth=$max_depth" >&2
+    echo "  expired_only=$expired_only min_size_gb=$min_size_gb timeout_seconds=$timeout_seconds max_depth=$max_depth measure_min_depth=$measure_min_depth" >&2
 
     local -a dirs_to_check=()
     if [ "$expired_only" = true ]; then
@@ -254,6 +270,13 @@ log_expired_dirs_with_size() {
 
         if is_excluded_dir "$dir"; then
             echo "[$((count + 1))/$total_dirs] Skipping excluded directory: $dir" >&2
+            continue
+        fi
+
+        local dir_depth
+        dir_depth=$(relative_depth "$base_dir" "$dir")
+        if [ "$dir_depth" -lt "$measure_min_depth" ]; then
+            echo "[$((count + 1))/$total_dirs] Skipping shallow directory: $dir (depth $dir_depth < $measure_min_depth)" >&2
             continue
         fi
 
@@ -342,6 +365,11 @@ while [ $# -gt 0 ]; do
         -d)
             [ $# -lt 2 ] && { echo "Missing value for -d" >&2; print_usage; exit 1; }
             max_depth="$2"
+            shift
+            ;;
+        --measure-mindepth)
+            [ $# -lt 2 ] && { echo "Missing value for --measure-mindepth" >&2; print_usage; exit 1; }
+            measure_min_depth="$2"
             shift
             ;;
         -a)
