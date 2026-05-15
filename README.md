@@ -4,17 +4,14 @@ This repository contains the RCP version of the storage scan workflow. It is not
 
 ## Do We Still Need The Shell Files?
 
-Yes, at least `check_files.sh`. It is the actual scanner and the Docker image runs it as the entrypoint.
+Yes: keep `check_files.sh`. It is the actual scanner and the Docker image runs it as the entrypoint.
 
-The `submit_*.sh` files are optional convenience wrappers around `runai submit`. You can use them, or paste the equivalent raw `runai submit ... -- bash /opt/check-clean-files/check_files.sh ...` command yourself.
+The old local submit and cleanup wrappers were removed to keep the RCP workflow simple. Use the raw Run:ai v2 command from `build_and_submit.md`.
 
 ## Files
 
 - `check_files.sh`: scans one or more base directories, writes CSV results, and prints a summary.
 - `Dockerfile`: builds the image that contains `check_files.sh`.
-- `submit_check_files_runai.sh`: optional wrapper to submit the scan as a Run:ai job.
-- `clean_expired_files.sh`: deletes paths listed in a text file, with optional dry-run mode.
-- `submit_clean_expired_files_runai.sh`: optional wrapper for cleanup through Run:ai.
 
 ## Build The Image
 
@@ -31,30 +28,20 @@ docker build . \
 docker push registry.rcp.epfl.ch/vita/check-clean-files:latest
 ```
 
-## Submit With The Wrapper
+## Submit With Run:ai v2
 
-```bash
-bash submit_check_files_runai.sh \
-  -i registry.rcp.epfl.ch/vita/check-clean-files:latest \
-  -n check-files-<your_username> \
-  -- -b /mnt/vita/scratch/vita-staff/users/<your_username> \
-     -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files-output \
-     -m 50 -d 2 -o files_rcp.csv
-```
-
-The wrapper mounts the RCP scratch PVC at `/mnt/vita/scratch` and executes `/opt/check-clean-files/check_files.sh` from the image.
-
-## Submit Without The Wrapper
-
-```bash
-runai submit --name check-files-<your_username> \
-  --image registry.rcp.epfl.ch/vita/check-clean-files:latest \
-  --cpu 4 \
-  --memory 32G \
-  --existing-pvc claimname=vita-scratch,path=/mnt/vita/scratch \
-  --command -- bash /opt/check-clean-files/check_files.sh \
-    -b /mnt/vita/scratch/vita-staff/users/<your_username> \
-    -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files-output \
+```powershell
+runai training submit check-files-<your_username> `
+  -p vita-<your_username> `
+  -i registry.rcp.epfl.ch/vita/check-clean-files:latest `
+  --image-pull-policy Always `
+  --cpu-core-request 4 `
+  --cpu-memory-request 32G `
+  --existing-pvc claimname=vita-scratch,path=/mnt/vita/scratch `
+  --restart-policy Never `
+  --command -- bash /opt/check-clean-files/check_files.sh `
+    -b /mnt/vita/scratch/vita-staff/users/<your_username> `
+    -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files-output `
     -m 50 -d 2 -o files_rcp.csv
 ```
 

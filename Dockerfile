@@ -18,7 +18,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/check-clean-files
-COPY check_files.sh clean_expired_files.sh ./
+COPY check_files.sh ./
 
 USER ${LDAP_USERNAME}
 
