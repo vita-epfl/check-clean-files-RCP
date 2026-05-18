@@ -1,12 +1,12 @@
 # Check Clean Files on RCP / Run:ai
 
-This repository contains the RCP version of the storage scan workflow. It is not tied to Slurm: the scanner runs inside a Docker image and the job is submitted from your laptop with Run:ai.
+This repository contains the RCP version of the storage scan workflow. It is not tied to Slurm: the scanner runs inside a Docker image and the job is submitted with Run:ai.
 
 ## Do We Still Need The Shell Files?
 
 Yes: keep `check_files.sh`. It is the actual scanner and the Docker image runs it as the entrypoint.
 
-The old local submit and cleanup wrappers were removed to keep the RCP workflow simple. Use the raw Run:ai v2 command from `build_and_submit.md`.
+The old local submit and cleanup wrappers were removed to keep the RCP workflow simple. Use the raw Run:ai command from `build_and_submit.md`.
 
 ## Files
 
@@ -28,7 +28,7 @@ docker build . \
 docker push registry.rcp.epfl.ch/vita/check-clean-files:latest
 ```
 
-## Submit With Run:ai v2
+## Submit With Run:ai
 
 This example scans user scratch folders and measures only one folder inside each user directory, e.g. `/mnt/vita/scratch/vita-staff/users/<person>/<top-folder>`.
 
@@ -43,15 +43,19 @@ runai training submit check-files-<your_username> `
   --restart-policy Never `
   --command -- bash /opt/check-clean-files/check_files.sh `
     -b /mnt/vita/scratch/vita-staff/users `
-    -O /mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output `
+    -O /mnt/vita/scratch/vita-staff/users/<your_username>/programs/check-clean-files/output `
     -m 50 -d 2 --measure-mindepth 2 -t 600 -o files_rcp.csv
 ```
 
 ## Output
 
 ```text
-/mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output/files_rcp.csv
-/mnt/vita/scratch/vita-staff/users/<your_username>/check-clean-files/output/files_rcp.summary.txt
+/mnt/vita/scratch/vita-staff/users/<your_username>/programs/check-clean-files/output/files_rcp.csv
+/mnt/vita/scratch/vita-staff/users/<your_username>/programs/check-clean-files/output/files_rcp.summary.txt
 ```
+
+If `-O` is omitted, the script writes to `output/` next to `check_files.sh`.
+
+PowerShell uses backticks for line continuation. Do not use bash backslashes in PowerShell.
 
 The summary includes the number of matching directories, `TOO_LARGE` entries, total known size, largest entries, and oldest modified entries.

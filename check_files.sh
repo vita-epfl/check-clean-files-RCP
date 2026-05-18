@@ -35,7 +35,7 @@ Options:
   -a <expiration_days>       Age threshold for -e. Default: 365.
   -b <dir[,dir,...]>         Base directories to scan.
   -x <dir[,dir,...]>         Exact directories to skip measuring.
-  -o <output_csv_basename>   Output filename under ./output. Default: expired_files_rcp.csv.
+  -o <output_csv_basename>   Output filename under the output directory. Default: expired_files_rcp.csv.
   -O <output_directory>      Directory for CSV and summary files.
   --resume                   Resume from the last path already present in each output CSV.
   --summary-only             Do not scan, only print and write summary for existing CSV output.
@@ -423,7 +423,7 @@ else
 fi
 
 if [ -z "$OUTPUT_DIR" ]; then
-    OUTPUT_DIR="${base_dirs[0]%/}/check-clean-files/output"
+    OUTPUT_DIR="$SCRIPT_DIR/output"
 fi
 
 mkdir -p "$OUTPUT_DIR"
