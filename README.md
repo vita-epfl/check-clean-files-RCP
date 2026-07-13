@@ -20,9 +20,9 @@ The recurring pipeline scans these scopes:
 
 | Scope | Base directory | Scanner options | CSV |
 | --- | --- | --- | --- |
-| datasets | `/mnt/vita/scratch/datasets` | `-m 50 -d 1 --measure-mindepth 1 -t 600` | `files_datasets.csv` |
-| vita-staff | `/mnt/vita/scratch/vita-staff/users` | `-m 50 -d 2 --measure-mindepth 2 -t 600` | `files_staff.csv` |
-| vita-students | `/mnt/vita/scratch/vita-students/users` | `-m 50 -d 2 --measure-mindepth 2 -t 600` | `files_students.csv` |
+| datasets | `/mnt/vita/scratch/datasets` | `-m 100 -d 1 --measure-mindepth 1 -t 600` | `files_datasets.csv` |
+| vita-staff | `/mnt/vita/scratch/vita-staff/users` | `-m 100 -d 2 --measure-mindepth 2 -t 600` | `files_staff.csv` |
+| vita-students | `/mnt/vita/scratch/vita-students/users` | `-m 100 -d 2 --measure-mindepth 2 -t 600` | `files_students.csv` |
 
 Outputs are written under:
 
@@ -161,12 +161,36 @@ python3 scripts/upload_storage_report_to_notion.py output_copy/storage_report.md
 
 ## Scheduling Every 2 Weeks
 
-The original scan cadence request mentioned every 3 weeks, but the scheduler request asked for every 2 weeks. The examples below use every 2 weeks.
+Yes. Run the scheduler on a machine that has the Run:ai CLI installed and authenticated. The scans and report generation run on RCP through Run:ai; the scheduler only submits jobs and polls their status.
 
-Cron is simple and works well if this host is always on. Edit with `crontab -e`:
+Use the pipeline wrapper for manual full runs:
+
+```bash
+RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai \
+RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output \
+scripts/run_recurring_pipeline.sh
+```
+
+For cron, use the biweekly guard. It can be checked every Monday but only launches the full pipeline when the last successful run is at least 13 days old:
+
+```bash
+RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai \
+RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output \
+RCP_BIWEEKLY_STAMP_FILE=/home/alefevre/programs/check-clean-files-RCP/output/last_successful_recurring_scan.txt \
+scripts/run_biweekly_if_due.sh
+```
+
+For a host where `/mnt/vita/scratch` is not mounted, local CSV validation is skipped automatically and the report/upload job validates the inputs inside the mounted PVC. To force or disable that behavior explicitly:
+
+```bash
+RCP_RUN_LOCAL_OUTPUT_CHECK=always scripts/run_recurring_pipeline.sh
+RCP_RUN_LOCAL_OUTPUT_CHECK=never scripts/run_recurring_pipeline.sh
+```
+
+Cron is simple and works well if the submitting host is always on. Edit with `crontab -e`:
 
 ```cron
-0 6 */14 * * cd /home/admin-vita7/programs/check-clean-files-RCP && /usr/bin/env bash -lc 'scripts/submit_rcp_scans.sh --execute --yes && scripts/wait_rcp_scans.sh && scripts/check_rcp_outputs.sh && scripts/submit_report_upload_job.sh --execute --yes' >> /mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output/scan_scheduler.log 2>&1
+0 6 * * 1 cd /home/alefevre/programs/check-clean-files-RCP && RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output RCP_BIWEEKLY_STAMP_FILE=/home/alefevre/programs/check-clean-files-RCP/output/last_successful_recurring_scan.txt /usr/bin/env bash scripts/run_biweekly_if_due.sh >> /home/alefevre/programs/check-clean-files-RCP/output/scan_scheduler.log 2>&1
 ```
 
 A systemd timer is better when you want missed runs to start after reboot.
@@ -179,18 +203,21 @@ Description=Submit and report RCP scratch storage scan
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/admin-vita7/programs/check-clean-files-RCP
-ExecStart=/usr/bin/env bash -lc 'scripts/submit_rcp_scans.sh --execute --yes && scripts/wait_rcp_scans.sh && scripts/check_rcp_outputs.sh && scripts/submit_report_upload_job.sh --execute --yes'
+WorkingDirectory=/home/alefevre/programs/check-clean-files-RCP
+Environment=RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai
+Environment=RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output
+Environment=RCP_BIWEEKLY_STAMP_FILE=/home/alefevre/programs/check-clean-files-RCP/output/last_successful_recurring_scan.txt
+ExecStart=/usr/bin/env bash -lc 'scripts/run_biweekly_if_due.sh'
 ```
 
 `~/.config/systemd/user/check-clean-files-rcp.timer`:
 
 ```ini
 [Unit]
-Description=Run RCP scratch storage scan every 2 weeks
+Description=Check whether the RCP scratch storage scan is due
 
 [Timer]
-OnCalendar=Mon *-*-01/14 06:00:00
+OnCalendar=Mon *-*-* 06:00:00
 Persistent=true
 Unit=check-clean-files-rcp.service
 
@@ -222,5 +249,5 @@ runai training submit check-files-staff-20260713-090000 \
   --command -- bash /opt/check-clean-files/check_files.sh \
     -b /mnt/vita/scratch/vita-staff/users \
     -O /mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output/runs/2026-07-13 \
-    -m 50 -d 2 --measure-mindepth 2 -t 600 -o files_staff.csv
+    -m 100 -d 2 --measure-mindepth 2 -t 600 -o files_staff.csv
 ```

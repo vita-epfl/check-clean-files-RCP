@@ -61,8 +61,9 @@ if [ "$execute" != true ]; then
     exit 0
 fi
 
-if ! command -v runai >/dev/null 2>&1; then
-    echo "runai was not found on PATH." >&2
+if ! command -v "$RCP_RUNAI_BIN" >/dev/null 2>&1; then
+    echo "Run:ai CLI was not found: $RCP_RUNAI_BIN" >&2
+    echo "Set RCP_RUNAI_BIN to the full path, or add runai to PATH." >&2
     exit 1
 fi
 

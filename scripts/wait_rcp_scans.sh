@@ -42,15 +42,16 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if ! command -v runai >/dev/null 2>&1; then
-    echo "runai was not found on PATH." >&2
+if ! command -v "$RCP_RUNAI_BIN" >/dev/null 2>&1; then
+    echo "Run:ai CLI was not found: $RCP_RUNAI_BIN" >&2
+    echo "Set RCP_RUNAI_BIN to the full path, or add runai to PATH." >&2
     exit 1
 fi
 
 status_for_job() {
     local job="$1"
     local raw
-    raw="$(runai training describe "$job" -p "$RCP_SCAN_PROJECT" -o json)"
+    raw="$("$RCP_RUNAI_BIN" training describe "$job" -p "$RCP_SCAN_PROJECT" -o json)"
     python3 - "$raw" <<'PY'
 import json
 import re

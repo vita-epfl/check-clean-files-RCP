@@ -6,7 +6,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 OUTPUT_DIR="${CHECK_FILES_OUTPUT_DIR:-}"
 
 expired_only=false
-min_size_gb=50
+min_size_gb=100
 timeout_seconds=1200
 resume=false
 summary_only=false
@@ -28,7 +28,7 @@ Usage: check_files.sh [--resume] [--summary-only] [-e] [-m min_size_gb] [-t time
 
 Options:
   -e                         Only consider directories older than expiration_days.
-  -m <min_size_gb>           Minimum directory size in GB to record. Default: 50.
+  -m <min_size_gb>           Minimum directory size in GB to record. Default: 100.
   -t <timeout_seconds>       Timeout for each du call. Default: 1200.
   -d <max_depth>             Maximum directory depth to scan from each base dir. Default: 2.
   --measure-mindepth <depth> Only measure directories at least this deep from each base dir. Default: 1.

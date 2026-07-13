@@ -14,6 +14,7 @@ RCP_SCAN_MEMORY="${RCP_SCAN_MEMORY:-32G}"
 RCP_SCAN_PVC_CLAIM="${RCP_SCAN_PVC_CLAIM:-vita-scratch}"
 RCP_SCAN_PVC_PATH="${RCP_SCAN_PVC_PATH:-/mnt/vita/scratch}"
 RCP_SCAN_JOB_PREFIX="${RCP_SCAN_JOB_PREFIX:-check-files}"
+RCP_RUNAI_BIN="${RCP_RUNAI_BIN:-runai}"
 
 RCP_SCAN_SCOPES=(datasets staff students)
 
@@ -52,8 +53,8 @@ rcp_scope_summary() {
 
 rcp_scope_scan_args() {
     case "$1" in
-        datasets) printf '%s\n' "-m 50 -d 1 --measure-mindepth 1 -t 600" ;;
-        staff|students) printf '%s\n' "-m 50 -d 2 --measure-mindepth 2 -t 600" ;;
+        datasets) printf '%s\n' "-m 100 -d 1 --measure-mindepth 1 -t 600" ;;
+        staff|students) printf '%s\n' "-m 100 -d 2 --measure-mindepth 2 -t 600" ;;
         *) return 1 ;;
     esac
 }
@@ -75,7 +76,7 @@ rcp_submit_args() {
     base_dir="$(rcp_scope_base_dir "$scope")"
 
     args_ref=(
-        runai training submit "$(rcp_job_name "$scope")"
+        "$RCP_RUNAI_BIN" training submit "$(rcp_job_name "$scope")"
         -p "$RCP_SCAN_PROJECT"
         -i "$RCP_SCAN_IMAGE"
         --image-pull-policy Always
@@ -90,10 +91,10 @@ rcp_submit_args() {
 
     case "$scope" in
         datasets)
-            args_ref+=(-m 50 -d 1 --measure-mindepth 1 -t 600 -o "$csv_name")
+            args_ref+=(-m 100 -d 1 --measure-mindepth 1 -t 600 -o "$csv_name")
             ;;
         staff|students)
-            args_ref+=(-m 50 -d 2 --measure-mindepth 2 -t 600 -o "$csv_name")
+            args_ref+=(-m 100 -d 2 --measure-mindepth 2 -t 600 -o "$csv_name")
             ;;
         *)
             return 1

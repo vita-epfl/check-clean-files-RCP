@@ -160,7 +160,24 @@ def sorted_rows(rows: Iterable[dict[str, str]]) -> list[dict[str, str]]:
     )
 
 
-def render_table(headers: list[str], rows: list[list[object]]) -> list[str]:
+def review_rows(rows: Iterable[dict[str, str]], limit: int) -> list[dict[str, str]]:
+    too_large_rows = sorted(
+        (row for row in rows if row.get("Size") == "TOO_LARGE"),
+        key=lambda row: row.get("Directory", ""),
+    )
+    measured_rows = sorted_rows(row for row in rows if row.get("Size") != "TOO_LARGE")[:limit]
+    return [*too_large_rows, *measured_rows]
+
+def render_table(
+    headers: list[str],
+    rows: list[list[object]],
+    *,
+    action_columns: bool = False,
+) -> list[str]:
+    if action_columns:
+        headers = [*headers, "Is needed", "Can be deleted"]
+        rows = [[*row, "☐", "☐"] for row in rows]
+
     lines = [
         "| " + " | ".join(headers) + " |",
         "| " + " | ".join("---" for _ in headers) + " |",
@@ -187,7 +204,7 @@ def render_scope(scope: ScopeReport, limit: int) -> list[str]:
         lines.extend(render_table(["Owner", "Entries"], [[owner, count] for owner, count in owner_rows]))
         lines.append("")
 
-    top_rows = sorted_rows(scope.rows)[:limit]
+    top_rows = review_rows(scope.rows, limit)
     if top_rows:
         headers = ["Directory", "Size", "Modified", "Accessed"]
         rows = [
@@ -203,7 +220,7 @@ def render_scope(scope: ScopeReport, limit: int) -> list[str]:
             headers.insert(2, "Owner")
             for table_row, source_row in zip(rows, top_rows):
                 table_row.insert(2, source_row.get("Owner", ""))
-        lines.extend(render_table(headers, rows))
+        lines.extend(render_table(headers, rows, action_columns=True))
     else:
         lines.append("No matching directories were recorded.")
 
@@ -248,6 +265,7 @@ def main() -> int:
         "",
         f"- Run directory: `{run_dir}`",
         f"- Generated on: {date.today().isoformat()}",
+        "- Scan note: this lists matching directories, not every file. Entries are filtered by scan scope, depth, and minimum size. Review tables include all TOO_LARGE entries first, then the largest measured entries. Notion does not render interactive checkboxes inside Markdown table cells, so use ☐ as a manual review marker.",
         "",
     ]
 
