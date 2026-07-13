@@ -19,6 +19,7 @@ RUN apt-get update \
 
 WORKDIR /opt/check-clean-files
 COPY check_files.sh ./
+COPY scripts ./scripts/
 
 USER ${LDAP_USERNAME}
 
