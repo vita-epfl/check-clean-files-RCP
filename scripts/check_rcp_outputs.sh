@@ -6,7 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/rcp_scan_config.sh
 source "$SCRIPT_DIR/rcp_scan_config.sh"
 
-required_header='"Directory","Size","Modified","Accessed","Owner"'
+required_header='"Directory","Size","Modified","Accessed","Owner","Deleted"'
+legacy_header='"Directory","Size","Modified","Accessed","Owner"'
 missing=0
 
 echo "Checking scan outputs in: $RCP_SCAN_OUTPUT_DIR"
@@ -22,7 +23,7 @@ for scope in "${RCP_SCAN_SCOPES[@]}"; do
     fi
 
     header="$(head -n 1 "$csv_path")"
-    if [ "$header" != "$required_header" ]; then
+    if [ "$header" != "$required_header" ] && [ "$header" != "$legacy_header" ]; then
         echo "Unexpected header in $csv_path: $header" >&2
         missing=1
     fi

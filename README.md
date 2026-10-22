@@ -20,9 +20,9 @@ The recurring pipeline scans these scopes:
 
 | Scope | Base directory | Scanner options | CSV |
 | --- | --- | --- | --- |
-| datasets | `/mnt/vita/scratch/datasets` | `-m 100 -d 1 --measure-mindepth 1 -t 600` | `files_datasets.csv` |
-| vita-staff | `/mnt/vita/scratch/vita-staff/users` | `-m 100 -d 2 --measure-mindepth 2 -t 600` | `files_staff.csv` |
-| vita-students | `/mnt/vita/scratch/vita-students/users` | `-m 100 -d 2 --measure-mindepth 2 -t 600` | `files_students.csv` |
+| datasets | `/mnt/vita/scratch/datasets` | `-m 50 -d 1 --measure-mindepth 1 -t 600` | `files_datasets.csv` |
+| vita-staff | `/mnt/vita/scratch/vita-staff/users` | `-m 50 -d 2 --measure-mindepth 2 -t 600` | `files_staff.csv` |
+| vita-students | `/mnt/vita/scratch/vita-students/users` | `-m 50 -d 2 --measure-mindepth 2 -t 600` | `files_students.csv` |
 
 Outputs are written under:
 
@@ -33,7 +33,7 @@ Outputs are written under:
 Each CSV uses this header:
 
 ```text
-"Directory","Size","Modified","Accessed","Owner"
+"Directory","Size","Modified","Accessed","Owner","Deleted"
 ```
 
 ## Build The Image
@@ -163,6 +163,10 @@ python3 scripts/upload_storage_report_to_notion.py output_copy/storage_report.md
 
 Yes. Run the scheduler on a machine that has the Run:ai CLI installed and authenticated. The scans and report generation run on RCP through Run:ai; the scheduler only submits jobs and polls their status. The recurring wrapper waits for the report/upload job to complete before recording the run as successful.
 
+Run:ai interactive tokens expire. Cron cannot refresh one by itself, so run `runai login` on the scheduler host before the token expires or before a due run. If authentication fails while polling, the pipeline exits immediately with the Run:ai error instead of looping on `Unknown`; the success stamp is not updated. The default polling timeout is 24 hours and can be changed with `RCP_SCAN_WAIT_TIMEOUT_SECONDS`.
+
+The scanner invokes one `du` process at a time and is primarily storage-I/O bound. The defaults are therefore 1 CPU and 4 GiB, with matching limits. `--node-pools v100` selects the RCP node pool but does not request a GPU; no GPU is allocated.
+
 Use the pipeline wrapper for manual full runs:
 
 ```bash
@@ -244,12 +248,85 @@ runai training submit check-files-staff-20260713-090000 \
   -p vita-<username> \
   -i registry.rcp.epfl.ch/vita/check-clean-files:latest \
   --image-pull-policy Always \
-  --cpu-core-request 4 \
-  --cpu-memory-request 32G \
+  --cpu-core-request 1 \
+  --cpu-core-limit 1 \
+  --cpu-memory-request 4G \
+  --cpu-memory-limit 4G \
+  --node-pools v100 \
   --existing-pvc claimname=vita-scratch,path=/mnt/vita/scratch \
   --restart-policy Never \
   --command -- bash /opt/check-clean-files/check_files.sh \
     -b /mnt/vita/scratch/vita-staff/users \
     -O /mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output/runs/2026-07-13 \
-    -m 100 -d 2 --measure-mindepth 2 -t 600 -o files_staff.csv
+    -m 50 -d 2 --measure-mindepth 2 -t 600 -o files_staff.csv
 ```
+The CSV includes `Directory`, `Size`, `Modified`, `Accessed`, `Owner`, and `Deleted`. `Deleted` is emitted as `false` so it can be imported into Notion as an unchecked checkbox. `Accessed` is captured before the size scan to avoid recording access caused by the analysis itself. The summary includes the number of matching directories, `TOO_LARGE` entries, total known size, largest entries, and oldest modified entries.
+
+## Audit Cold Files Without Reading Their Contents
+
+`audit_cold_files.sh` inventories every regular file from filesystem metadata only. It does not open file contents and never deletes data. The default cutoff is six calendar months before the scan. Reports include:
+
+- `cold_files.csv`: one row per cold file, with access/modification time, logical and allocated sizes, owner, a conservative class, and an empty decision column;
+- `cold_by_directory.csv`: project-level totals, grouped by the first two relative path components;
+- `cold_by_class.csv` and `cold_by_extension.csv`: review aids;
+- `audit_summary.md`: totals and the 30 largest cold directory groups;
+- `find_errors.log`: paths that could not be inspected.
+
+The classifications are suggestions, not deletion authorization. Caches, temporary files, and old logs are marked `CANDIDATE_AFTER_CHECK`; model checkpoints and derived outputs are marked `REVIEW`; audio, datasets, source code, configs, and metadata are marked `KEEP_OR_MIGRATE`.
+
+The scanner prunes the storage-managed `.snapshot` tree. Snapshots are not user data to inventory, and traversing them can otherwise produce filesystem-loop warnings.
+
+Run locally on an accessible mount:
+
+```bash
+bash audit_cold_files.sh \
+  -b /mnt/vita-vldriving/scratch \
+  -O output/cold-audit-vldriving
+```
+
+The RCP scratch mounts use `relatime`. Metadata calls do not update regular-file access times, so the scanner preserves the file `atime` values it audits. Traversing directory entries can update directory access times; therefore this report makes retention decisions only for regular files.
+
+### Run the vldriving audit with Run:ai
+
+The local login node may not grant access to the vldriving mount. In that case, authenticate with `runai login` and submit a CPU-only job with both the source and report PVCs mounted. This command runs the scanner directly from the `vita-scratch` checkout, so the image does not need to be rebuilt first:
+
+```powershell
+runai training standard submit audit-vldriving-<your_username> `
+  -p vita-<your_username> `
+  -i registry.rcp.epfl.ch/vita/check-clean-files:latest `
+  --image-pull-policy Always `
+  --cpu-core-request 1 `
+  --cpu-core-limit 1 `
+  --cpu-memory-request 4G `
+  --cpu-memory-limit 4G `
+  --node-pools v100 `
+  --existing-pvc claimname=vita-vldriving-scratch,path=/mnt/vita-vldriving/scratch `
+  --existing-pvc claimname=vita-scratch,path=/mnt/vita/scratch `
+  --restart-policy Never `
+  --command -- bash /mnt/vita/scratch/vita-staff/users/<your_username>/programs/check-clean-files/audit_cold_files.sh `
+    -b /mnt/vita-vldriving/scratch `
+    -O /mnt/vita/scratch/vita-staff/users/<your_username>/programs/check-clean-files/output/cold-audit-vldriving
+```
+
+Confirm the exact vldriving PVC claim name in the RCP Portal or with the storage team before submission.
+
+Run the metadata scanner's local fixture test with:
+
+```bash
+bash tests/test_audit_cold_files.sh
+```
+
+To create the usual project-folder review sheet from the detailed per-file CSV, without rescanning the source volume:
+
+```bash
+bash summarize_cold_folders.sh \
+  -i output/cold-audit-vldriving/cold_files.csv \
+  -o output/cold-audit-vldriving/cold_folders.csv
+```
+
+This groups personal data as `users/<owner>/<project>` and shared data as `datasets/<name>`, `models/<name>`, or `results/<run>`.
+The allocated and logical sizes are written in human-readable IEC units (`TiB`, `GiB`, `MiB`, or `KiB`) rather than raw bytes.
+
+## NAS1 Versus NAS3
+
+NAS3 is the all-flash scratch tier used by RCP compute workloads. NAS1 is the collaborative, snapshotted, multi-protocol storage tier intended for longer-lived lab data. For ENAC, the service endpoints are `enac-nas1.rcp.epfl.ch` (SMB) and `enac-nas1-nfs.rcp.epfl.ch` (NFS). A NAS1 share and sufficient quota must already exist before migrating the vldriving data; ask the RCP storage team which ENAC share and destination path they want you to use.

@@ -52,7 +52,10 @@ declare -a submit_args=(
     -i "$RCP_SCAN_IMAGE"
     --image-pull-policy Always
     --cpu-core-request 1
+    --cpu-core-limit 1
     --cpu-memory-request 2G
+    --cpu-memory-limit 2G
+    --node-pools "$RCP_SCAN_NODE_POOL"
     --existing-pvc "claimname=${RCP_SCAN_PVC_CLAIM},path=${RCP_SCAN_PVC_PATH}"
     --env-secret "NOTION_API_KEY=${notion_secret_name},key=${notion_secret_key}"
     --environment-variable "RCP_SCAN_OUTPUT_ROOT=${RCP_SCAN_OUTPUT_ROOT}"

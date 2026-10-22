@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/rcp_scan_config.sh"
 
 poll_seconds="${RCP_SCAN_POLL_SECONDS:-120}"
-timeout_seconds="${RCP_SCAN_WAIT_TIMEOUT_SECONDS:-0}"
+timeout_seconds="${RCP_SCAN_WAIT_TIMEOUT_SECONDS:-86400}"
 declare -a explicit_jobs=()
 
 usage() {
@@ -68,7 +68,12 @@ fi
 status_for_job() {
     local job="$1"
     local raw
-    raw="$("$RCP_RUNAI_BIN" training describe "$job" -p "$RCP_SCAN_PROJECT" -o json)"
+    if ! raw="$("$RCP_RUNAI_BIN" training describe "$job" -p "$RCP_SCAN_PROJECT" -o json 2>&1)"; then
+        echo "Run:ai could not query $job:" >&2
+        printf '%s\n' "$raw" >&2
+        echo "Authenticate interactively with '$RCP_RUNAI_BIN login', then restart the pipeline." >&2
+        return 1
+    fi
     python3 - "$raw" <<'PY'
 import json
 import re
@@ -110,7 +115,9 @@ while true; do
     echo "Status at $(date -Is):"
 
     for job in "${jobs[@]}"; do
-        status="$(status_for_job "$job")"
+        if ! status="$(status_for_job "$job")"; then
+            exit 1
+        fi
         printf '  %-42s %s\n' "$job" "$status"
         case "$status" in
             Completed) complete_count=$((complete_count + 1)) ;;

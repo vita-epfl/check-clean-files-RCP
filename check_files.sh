@@ -217,7 +217,7 @@ log_expired_dirs_with_size() {
     if [ "$resume" = true ] && [ -s "$log_file" ]; then
         echo "Resume mode: appending to existing log $log_file" >&2
     else
-        echo '"Directory","Size","Modified","Accessed","Owner"' > "$log_file"
+        echo '"Directory","Size","Modified","Accessed","Owner","Deleted"' > "$log_file"
     fi
 
     echo "Scanning $base_dir" >&2
@@ -283,29 +283,22 @@ log_expired_dirs_with_size() {
         count=$((count + 1))
         echo "[$count/$total_dirs] Checking $dir" >&2
 
+        modified_date=$(stat -c %y "$dir" 2>/dev/null || echo "unknown")
+        accessed_date=$(stat -c %x "$dir" 2>/dev/null || echo "unknown")
+        owner=$(stat -c %U "$dir" 2>/dev/null || echo "unknown")
         local size_bytes
         size_bytes=$(timeout "$timeout_seconds" du -s -B1 "$dir" 2>/dev/null | awk '{print $1}')
         if [ -n "$size_bytes" ]; then
             if [ "$size_bytes" -ge "$min_size_bytes" ]; then
                 local size_human
-                local modified_date
-                local accessed_date
                 size_human=$(format_bytes_human "$size_bytes")
-                modified_date=$(stat -c %y "$dir" 2>/dev/null || echo "unknown")
-                accessed_date=$(stat -c %x "$dir" 2>/dev/null || echo "unknown")
-                owner=$(stat -c %U "$dir" 2>/dev/null || echo "unknown")
-                printf '"%s","%s","%s","%s","%s"\n' "$dir" "$size_human" "$modified_date" "$accessed_date" "$owner" >> "$log_file"
+                printf '"%s","%s","%s","%s","%s","%s"\n' "$dir" "$size_human" "$modified_date" "$accessed_date" "$owner" "false" >> "$log_file"
                 echo "  match: $size_human" >&2
             fi
             continue
         fi
 
-        local modified_date
-        local accessed_date
-        modified_date=$(stat -c %y "$dir" 2>/dev/null || echo "unknown")
-        accessed_date=$(stat -c %x "$dir" 2>/dev/null || echo "unknown")
-        owner=$(stat -c %U "$dir" 2>/dev/null || echo "unknown")
-        printf '"%s","%s","%s","%s","%s"\n' "$dir" "TOO_LARGE" "$modified_date" "$accessed_date" "$owner" >> "$log_file"
+        printf '"%s","%s","%s","%s","%s","%s"\n' "$dir" "TOO_LARGE" "$modified_date" "$accessed_date" "$owner" "false" >> "$log_file"
         echo "  timed out, marked as TOO_LARGE" >&2
 
         local -a subdirs=()
@@ -322,27 +315,20 @@ log_expired_dirs_with_size() {
             fi
 
             echo "  checking child $subdir" >&2
+            sub_modified_date=$(stat -c %y "$subdir" 2>/dev/null || echo "unknown")
+            sub_accessed_date=$(stat -c %x "$subdir" 2>/dev/null || echo "unknown")
+            sub_owner=$(stat -c %U "$subdir" 2>/dev/null || echo "unknown")
             local sub_size_bytes
             sub_size_bytes=$(timeout "$timeout_seconds" du -s -B1 "$subdir" 2>/dev/null | awk '{print $1}')
             if [ -n "$sub_size_bytes" ]; then
                 if [ "$sub_size_bytes" -ge "$min_size_bytes" ]; then
                     local sub_size_human
-                    local sub_modified_date
-                    local sub_accessed_date
                     sub_size_human=$(format_bytes_human "$sub_size_bytes")
-                    sub_modified_date=$(stat -c %y "$subdir" 2>/dev/null || echo "unknown")
-                    sub_accessed_date=$(stat -c %x "$subdir" 2>/dev/null || echo "unknown")
-                    sub_owner=$(stat -c %U "$subdir" 2>/dev/null || echo "unknown")
-                    printf '"%s","%s","%s","%s","%s"\n' "$subdir" "$sub_size_human" "$sub_modified_date" "$sub_accessed_date" "$sub_owner" >> "$log_file"
+                    printf '"%s","%s","%s","%s","%s","%s"\n' "$subdir" "$sub_size_human" "$sub_modified_date" "$sub_accessed_date" "$sub_owner" "false" >> "$log_file"
                     echo "    child match: $sub_size_human" >&2
                 fi
             else
-                local sub_modified_date
-                local sub_accessed_date
-                sub_modified_date=$(stat -c %y "$subdir" 2>/dev/null || echo "unknown")
-                sub_accessed_date=$(stat -c %x "$subdir" 2>/dev/null || echo "unknown")
-                sub_owner=$(stat -c %U "$subdir" 2>/dev/null || echo "unknown")
-                printf '"%s","%s","%s","%s","%s"\n' "$subdir" "TOO_LARGE" "$sub_modified_date" "$sub_accessed_date" "$sub_owner" >> "$log_file"
+                printf '"%s","%s","%s","%s","%s","%s"\n' "$subdir" "TOO_LARGE" "$sub_modified_date" "$sub_accessed_date" "$sub_owner" "false" >> "$log_file"
                 echo "    child timed out, marked as TOO_LARGE" >&2
             fi
         done

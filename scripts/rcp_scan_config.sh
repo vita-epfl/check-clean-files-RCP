@@ -9,8 +9,9 @@ RCP_SCAN_OUTPUT_ROOT="${RCP_SCAN_OUTPUT_ROOT:-/mnt/vita/scratch/vita-staff/users
 RCP_SCAN_RUN_DATE="${RCP_SCAN_RUN_DATE:-$(date +%F)}"
 RCP_SCAN_RUN_ID="${RCP_SCAN_RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
 RCP_SCAN_OUTPUT_DIR="${RCP_SCAN_OUTPUT_ROOT}/runs/${RCP_SCAN_RUN_DATE}"
-RCP_SCAN_CPU_CORES="${RCP_SCAN_CPU_CORES:-4}"
-RCP_SCAN_MEMORY="${RCP_SCAN_MEMORY:-32G}"
+RCP_SCAN_CPU_CORES="${RCP_SCAN_CPU_CORES:-1}"
+RCP_SCAN_MEMORY="${RCP_SCAN_MEMORY:-4G}"
+RCP_SCAN_NODE_POOL="${RCP_SCAN_NODE_POOL:-v100}"
 RCP_SCAN_PVC_CLAIM="${RCP_SCAN_PVC_CLAIM:-vita-scratch}"
 RCP_SCAN_PVC_PATH="${RCP_SCAN_PVC_PATH:-/mnt/vita/scratch}"
 RCP_SCAN_JOB_PREFIX="${RCP_SCAN_JOB_PREFIX:-check-files}"
@@ -53,8 +54,8 @@ rcp_scope_summary() {
 
 rcp_scope_scan_args() {
     case "$1" in
-        datasets) printf '%s\n' "-m 100 -d 1 --measure-mindepth 1 -t 600" ;;
-        staff|students) printf '%s\n' "-m 100 -d 2 --measure-mindepth 2 -t 600" ;;
+        datasets) printf '%s\n' "-m 50 -d 1 --measure-mindepth 1 -t 600" ;;
+        staff|students) printf '%s\n' "-m 50 -d 2 --measure-mindepth 2 -t 600" ;;
         *) return 1 ;;
     esac
 }
@@ -81,7 +82,10 @@ rcp_submit_args() {
         -i "$RCP_SCAN_IMAGE"
         --image-pull-policy Always
         --cpu-core-request "$RCP_SCAN_CPU_CORES"
+        --cpu-core-limit "$RCP_SCAN_CPU_CORES"
         --cpu-memory-request "$RCP_SCAN_MEMORY"
+        --cpu-memory-limit "$RCP_SCAN_MEMORY"
+        --node-pools "$RCP_SCAN_NODE_POOL"
         --existing-pvc "claimname=${RCP_SCAN_PVC_CLAIM},path=${RCP_SCAN_PVC_PATH}"
         --restart-policy Never
         --command -- bash /opt/check-clean-files/check_files.sh
@@ -91,10 +95,10 @@ rcp_submit_args() {
 
     case "$scope" in
         datasets)
-            args_ref+=(-m 100 -d 1 --measure-mindepth 1 -t 600 -o "$csv_name")
+            args_ref+=(-m 50 -d 1 --measure-mindepth 1 -t 600 -o "$csv_name")
             ;;
         staff|students)
-            args_ref+=(-m 100 -d 2 --measure-mindepth 2 -t 600 -o "$csv_name")
+            args_ref+=(-m 50 -d 2 --measure-mindepth 2 -t 600 -o "$csv_name")
             ;;
         *)
             return 1

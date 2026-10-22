@@ -31,7 +31,7 @@ SCOPES = {
 }
 
 REQUIRED_COLUMNS = ["Directory", "Size", "Modified", "Accessed"]
-OPTIONAL_COLUMNS = ["Owner"]
+OPTIONAL_COLUMNS = ["Owner", "Deleted"]
 SIZE_RE = re.compile(r"^\s*([0-9.]+)\s*([KMGTPE]?i?B?|B)?\s*$", re.IGNORECASE)
 SIZE_UNITS = {
     "": 1,

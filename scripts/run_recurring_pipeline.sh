@@ -9,7 +9,8 @@ source "$SCRIPT_DIR/rcp_scan_config.sh"
 # Keep every child script on the same run identity and configuration.
 export RCP_SCAN_IMAGE RCP_SCAN_USER RCP_SCAN_PROJECT
 export RCP_SCAN_OUTPUT_ROOT RCP_SCAN_RUN_DATE RCP_SCAN_RUN_ID
-export RCP_SCAN_CPU_CORES RCP_SCAN_MEMORY RCP_SCAN_PVC_CLAIM RCP_SCAN_PVC_PATH
+export RCP_SCAN_CPU_CORES RCP_SCAN_MEMORY RCP_SCAN_NODE_POOL
+export RCP_SCAN_PVC_CLAIM RCP_SCAN_PVC_PATH
 export RCP_SCAN_JOB_PREFIX RCP_RUNAI_BIN
 
 lock_dir="${RCP_RECURRING_LOCK_DIR:-/tmp/check-clean-files-rcp-recurring.lock}"
