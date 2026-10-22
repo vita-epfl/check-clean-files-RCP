@@ -76,9 +76,13 @@ if [ "$assume_yes" != true ]; then
     fi
 fi
 
-mkdir -p "$RCP_SCAN_OUTPUT_DIR"
-rcp_write_manifest
-echo "Wrote manifest: $(rcp_manifest_path)"
+if mkdir -p "$RCP_SCAN_OUTPUT_DIR" 2>/dev/null; then
+    rcp_write_manifest
+    echo "Wrote manifest: $(rcp_manifest_path)"
+else
+    echo "Skipping local manifest because $RCP_SCAN_OUTPUT_DIR is not writable here."
+    echo "The Run:ai jobs will create their outputs through the mounted PVC."
+fi
 
 for scope in "${RCP_SCAN_SCOPES[@]}"; do
     declare -a submit_args=()

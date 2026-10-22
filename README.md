@@ -8,7 +8,7 @@ This repository contains the RCP storage scan workflow. The scanner itself runs 
 - `Dockerfile`: builds the image that contains `check_files.sh`.
 - `scripts/rcp_scan_config.sh`: shared configuration for the recurring RCP scratch scans.
 - `scripts/submit_rcp_scans.sh`: prints the exact Run:ai commands and, with confirmation, submits the three scan jobs.
-- `scripts/wait_rcp_scans.sh`: polls Run:ai until the three jobs complete.
+- `scripts/wait_rcp_scans.sh`: polls Run:ai until the scan jobs or explicitly named jobs complete.
 - `scripts/check_rcp_outputs.sh`: checks that expected CSV and summary files exist and have the expected CSV header.
 - `scripts/generate_storage_report.py`: generates `storage_report.md` and `storage_report.json` from the three CSV files.
 - `scripts/upload_storage_report_to_notion.py`: uploads a generated Markdown report to Notion.
@@ -55,7 +55,7 @@ docker push registry.rcp.epfl.ch/vita/check-clean-files:latest
 
 ## Submit The Recurring Scan
 
-Run:ai is installed on the current host at `/home/admin-vita7/.runai/bin/runai`.
+Run:ai is installed on the current host at `/home/alefevre/.runai/bin/runai`.
 
 The submit script is dry-run by default. It prints the exact Run:ai commands without submitting anything:
 
@@ -161,7 +161,7 @@ python3 scripts/upload_storage_report_to_notion.py output_copy/storage_report.md
 
 ## Scheduling Every 2 Weeks
 
-Yes. Run the scheduler on a machine that has the Run:ai CLI installed and authenticated. The scans and report generation run on RCP through Run:ai; the scheduler only submits jobs and polls their status.
+Yes. Run the scheduler on a machine that has the Run:ai CLI installed and authenticated. The scans and report generation run on RCP through Run:ai; the scheduler only submits jobs and polls their status. The recurring wrapper waits for the report/upload job to complete before recording the run as successful.
 
 Use the pipeline wrapper for manual full runs:
 
@@ -171,7 +171,7 @@ RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-
 scripts/run_recurring_pipeline.sh
 ```
 
-For cron, use the biweekly guard. It can be checked every Monday but only launches the full pipeline when the last successful run is at least 13 days old:
+For cron, use the biweekly guard. It can be checked every day but only launches the full pipeline when the last successful run is at least 13 days old:
 
 ```bash
 RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai \
@@ -187,10 +187,12 @@ RCP_RUN_LOCAL_OUTPUT_CHECK=always scripts/run_recurring_pipeline.sh
 RCP_RUN_LOCAL_OUTPUT_CHECK=never scripts/run_recurring_pipeline.sh
 ```
 
+The submission step also skips writing its local run manifest when the RCP output path is not mounted or writable. This does not affect the scan jobs: they create the output directory through the PVC mounted inside Run:ai.
+
 Cron is simple and works well if the submitting host is always on. Edit with `crontab -e`:
 
 ```cron
-0 6 * * 1 cd /home/alefevre/programs/check-clean-files-RCP && RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output RCP_BIWEEKLY_STAMP_FILE=/home/alefevre/programs/check-clean-files-RCP/output/last_successful_recurring_scan.txt /usr/bin/env bash scripts/run_biweekly_if_due.sh >> /home/alefevre/programs/check-clean-files-RCP/output/scan_scheduler.log 2>&1
+0 6 * * * cd /home/alefevre/programs/check-clean-files-RCP && RCP_RUNAI_BIN=/home/alefevre/.runai/bin/runai RCP_SCAN_OUTPUT_ROOT=/mnt/vita/scratch/vita-staff/users/alefevre/programs/check-clean-files/output RCP_BIWEEKLY_STAMP_FILE=/home/alefevre/programs/check-clean-files-RCP/output/last_successful_recurring_scan.txt /usr/bin/env bash scripts/run_biweekly_if_due.sh >> /home/alefevre/programs/check-clean-files-RCP/output/scan_scheduler.log 2>&1
 ```
 
 A systemd timer is better when you want missed runs to start after reboot.

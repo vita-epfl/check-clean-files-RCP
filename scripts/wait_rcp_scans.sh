@@ -8,14 +8,18 @@ source "$SCRIPT_DIR/rcp_scan_config.sh"
 
 poll_seconds="${RCP_SCAN_POLL_SECONDS:-120}"
 timeout_seconds="${RCP_SCAN_WAIT_TIMEOUT_SECONDS:-0}"
+declare -a explicit_jobs=()
 
 usage() {
     cat <<'EOF'
-Usage: scripts/wait_rcp_scans.sh [--poll-seconds N] [--timeout-seconds N]
+Usage: scripts/wait_rcp_scans.sh [--poll-seconds N] [--timeout-seconds N] [--job NAME]
 
 Poll Run:ai until the configured datasets/staff/students jobs finish.
 Set RCP_SCAN_RUN_ID to the run ID printed by submit_rcp_scans.sh when waiting
 for a previous run.
+
+Use --job to wait for one or more explicitly named jobs, such as the
+report/upload job.
 EOF
 }
 
@@ -27,6 +31,10 @@ while [ $# -gt 0 ]; do
             ;;
         --timeout-seconds)
             timeout_seconds="$2"
+            shift
+            ;;
+        --job)
+            explicit_jobs+=("$2")
             shift
             ;;
         -h|--help)
@@ -46,6 +54,15 @@ if ! command -v "$RCP_RUNAI_BIN" >/dev/null 2>&1; then
     echo "Run:ai CLI was not found: $RCP_RUNAI_BIN" >&2
     echo "Set RCP_RUNAI_BIN to the full path, or add runai to PATH." >&2
     exit 1
+fi
+
+declare -a jobs=()
+if [ "${#explicit_jobs[@]}" -gt 0 ]; then
+    jobs=("${explicit_jobs[@]}")
+else
+    for scope in "${RCP_SCAN_SCOPES[@]}"; do
+        jobs+=("$(rcp_job_name "$scope")")
+    done
 fi
 
 status_for_job() {
@@ -92,8 +109,7 @@ while true; do
     failed_count=0
     echo "Status at $(date -Is):"
 
-    for scope in "${RCP_SCAN_SCOPES[@]}"; do
-        job="$(rcp_job_name "$scope")"
+    for job in "${jobs[@]}"; do
         status="$(status_for_job "$job")"
         printf '  %-42s %s\n' "$job" "$status"
         case "$status" in
@@ -107,8 +123,8 @@ while true; do
         exit 1
     fi
 
-    if [ "$complete_count" -eq "${#RCP_SCAN_SCOPES[@]}" ]; then
-        echo "All scan jobs completed."
+    if [ "$complete_count" -eq "${#jobs[@]}" ]; then
+        echo "All requested jobs completed."
         exit 0
     fi
 
