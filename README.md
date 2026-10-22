@@ -111,6 +111,22 @@ Then submit it after checking the printed command:
 scripts/submit_report_upload_job.sh --execute
 ```
 
+To generate a report from only selected CSV scopes, pass a comma-separated list:
+
+```bash
+RCP_REPORT_SCOPES=staff,students scripts/submit_report_upload_job.sh --execute
+```
+
+The report job uses a lightweight CPU-only image. Build and push it with:
+
+```bash
+docker build -f Dockerfile.report \
+  -t registry.rcp.epfl.ch/vita/check-clean-files-report:latest \
+  --build-arg LDAP_GROUPNAME=vita --build-arg LDAP_GID=78930 \
+  --build-arg LDAP_USERNAME=alefevre --build-arg LDAP_UID=305303 .
+docker push registry.rcp.epfl.ch/vita/check-clean-files-report:latest
+```
+
 The report generator writes:
 
 ```text

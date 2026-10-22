@@ -254,11 +254,23 @@ def main() -> int:
     parser.add_argument("run_dir", type=Path, help="Run output directory containing the three CSV files.")
     parser.add_argument("--output", type=Path, default=None, help="Markdown report path.")
     parser.add_argument("--limit", type=int, default=20, help="Rows to show per table.")
+    parser.add_argument(
+        "--scopes",
+        default=",".join(SCOPES),
+        help="Comma-separated scopes to include: datasets, staff, students.",
+    )
     args = parser.parse_args()
 
     run_dir = args.run_dir
     output_path = args.output or run_dir / "storage_report.md"
-    scopes = [load_scope(run_dir, key, spec) for key, spec in SCOPES.items()]
+    scope_keys = [key.strip() for key in args.scopes.split(",") if key.strip()]
+    invalid_scopes = [key for key in scope_keys if key not in SCOPES]
+    if not scope_keys or invalid_scopes:
+        parser.error(
+            f"--scopes must contain one or more of {', '.join(SCOPES)}; "
+            f"invalid values: {', '.join(invalid_scopes) or 'none'}"
+        )
+    scopes = [load_scope(run_dir, key, SCOPES[key]) for key in scope_keys]
 
     lines = [
         "# RCP Scratch Storage Report",

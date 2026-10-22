@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+ARG LDAP_USERNAME
+ARG LDAP_UID
+ARG LDAP_GROUPNAME
+ARG LDAP_GID
+
+RUN groupadd --gid "${LDAP_GID}" "${LDAP_GROUPNAME}" \
+    && useradd -m -s /bin/bash -g "${LDAP_GROUPNAME}" -u "${LDAP_UID}" "${LDAP_USERNAME}"
+
+WORKDIR /opt/check-clean-files
+COPY scripts ./scripts/
+
+USER ${LDAP_USERNAME}
+
+ENTRYPOINT ["bash", "/opt/check-clean-files/scripts/run_report_upload.sh"]

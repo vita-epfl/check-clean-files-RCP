@@ -11,6 +11,8 @@ assume_yes=false
 notion_secret_name="${NOTION_SECRET_NAME:-notion-api-key}"
 notion_secret_key="${NOTION_SECRET_KEY:-token}"
 notion_parent_page_id="${NOTION_PARENT_PAGE_ID:-39c953b34421805f9b81d664f291f945}"
+report_scopes="${RCP_REPORT_SCOPES:-datasets,staff,students}"
+report_image="${RCP_REPORT_IMAGE:-registry.rcp.epfl.ch/vita/check-clean-files-report:latest}"
 
 usage() {
     cat <<'EOF'
@@ -27,6 +29,8 @@ The Notion token is expected as a Kubernetes secret:
 Useful environment overrides:
   RCP_SCAN_RUN_DATE=YYYY-MM-DD
   RCP_SCAN_RUN_ID=YYYYMMDD-HHMMSS
+  RCP_REPORT_SCOPES=datasets,staff,students
+  RCP_REPORT_IMAGE=registry.rcp.epfl.ch/vita/check-clean-files-report:latest
   NOTION_PARENT_PAGE_ID=<page-id-or-url>
 EOF
 }
@@ -49,7 +53,7 @@ job_name="$(rcp_job_name report-upload)"
 declare -a submit_args=(
     "$RCP_RUNAI_BIN" training submit "$job_name"
     -p "$RCP_SCAN_PROJECT"
-    -i "$RCP_SCAN_IMAGE"
+    -i "$report_image"
     --image-pull-policy Always
     --cpu-core-request 1
     --cpu-core-limit 1
@@ -62,17 +66,18 @@ declare -a submit_args=(
     --environment-variable "RCP_SCAN_RUN_DATE=${RCP_SCAN_RUN_DATE}"
     --environment-variable "RCP_SCAN_RUN_ID=${RCP_SCAN_RUN_ID}"
     --environment-variable "RCP_SCAN_PROJECT=${RCP_SCAN_PROJECT}"
+    --environment-variable "RCP_REPORT_SCOPES=${report_scopes}"
     --environment-variable "NOTION_PARENT_PAGE_ID=${notion_parent_page_id}"
     --restart-policy Never
-    --command -- bash /opt/check-clean-files/scripts/run_report_upload.sh
 )
 
 echo "Report/upload job:"
 echo "Run date: $RCP_SCAN_RUN_DATE"
 echo "Run ID: $RCP_SCAN_RUN_ID"
 echo "Project: $RCP_SCAN_PROJECT"
-echo "Image: $RCP_SCAN_IMAGE"
+echo "Image: $report_image"
 echo "Output directory: $RCP_SCAN_OUTPUT_DIR"
+echo "Report scopes: $report_scopes"
 echo "Notion parent page: $notion_parent_page_id"
 echo "Notion token source: secret ${notion_secret_name}, key ${notion_secret_key}"
 echo

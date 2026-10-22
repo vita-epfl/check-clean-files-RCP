@@ -74,7 +74,8 @@ def main() -> int:
     report_path = args.report
     markdown = report_path.read_text(encoding="utf-8")
     parent_page_id = normalize_page_id(args.parent_page_id)
-    title = args.title or f"RCP Storage Report {date.today().isoformat()}"
+    report_date = os.environ.get("RCP_SCAN_RUN_DATE", date.today().isoformat())
+    title = args.title or f"RCP Storage Report {report_date}"
 
     body = {
         "parent": {"page_id": parent_page_id},
